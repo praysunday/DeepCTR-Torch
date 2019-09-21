@@ -51,8 +51,6 @@ class CCPM(BaseModel):
                        activation=dnn_activation, l2_reg=l2_reg_dnn, dropout_rate=dnn_dropout, use_bn=dnn_use_bn,
                        init_std=init_std,device=device)
         self.dnn_linear = nn.Linear(dnn_hidden_units[-1], 1, bias=False).to(device)
-        # self.get_conv_input = tf.keras.layers.Lambda(
-        # lambda x: tf.expand_dims(x, axis=3))
 
     def forward(self,X):
 
