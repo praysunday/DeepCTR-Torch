@@ -278,6 +278,30 @@ class BaseModel(nn.Module):
 
         return sparse_embedding_list, dense_value_list
 
+    def get_linear_logit(self,features, feature_columns, units=1, l2_reg=0, init_std=0.0001, seed=1024, prefix='linear'):
+
+        linear_emb_list = [input_from_feature_columns(features,feature_columns,1,l2_reg,init_std,seed,prefix=prefix+str(i))[0] for i in range(units)]
+        _, dense_input_list = input_from_feature_columns(features,feature_columns,1,l2_reg,init_std,seed,prefix=prefix)
+
+        linear_logit_list = []
+        for i in range(units):
+
+            if len(linear_emb_list[0])>0 and len(dense_input_list) >0:
+                sparse_input = concat_fun(linear_emb_list[i])
+                dense_input = concat_fun(dense_input_list)
+                linear_logit = Linear(l2_reg,mode=2)([sparse_input,dense_input])
+            elif len(linear_emb_list[0])>0:
+                sparse_input = concat_fun(linear_emb_list[i])
+                linear_logit = Linear(l2_reg,mode=0)(sparse_input)
+            elif len(dense_input_list) >0:
+                dense_input = concat_fun(dense_input_list)
+                linear_logit = Linear(l2_reg,mode=1)(dense_input)
+            else:
+                raise NotImplementedError
+            linear_logit_list.append(linear_logit)
+
+        return concat_fun(linear_logit_list)
+
     def create_embedding_matrix(self, feature_columns, embedding_size, init_std=0.0001, sparse=False):
 
         sparse_feature_columns = list(
