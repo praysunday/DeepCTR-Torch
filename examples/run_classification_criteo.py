@@ -10,7 +10,7 @@ import torch
 
 
 if __name__ == "__main__":
-    data = pd.read_csv('./criteo_sample.txt')
+    data = pd.read_csv('/home/SENSETIME/zengkai/new_ctr_test/DeepCTR-PyTorch/examples/criteo_sample.txt')
 
     sparse_features = ['C' + str(i) for i in range(1, 27)]
     dense_features = ['I' + str(i) for i in range(1, 14)]
