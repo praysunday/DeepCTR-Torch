@@ -79,6 +79,7 @@ class Conv2dSame(nn.Conv2d):
         super(Conv2dSame, self).__init__(
             in_channels, out_channels, kernel_size, stride, 0, dilation,
             groups, bias)
+        nn.init.xavier_uniform_(self.weight)
 
     def forward(self, x):
         ih, iw = x.size()[-2:]
