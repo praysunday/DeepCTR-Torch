@@ -16,7 +16,6 @@ import torch.nn.functional as F
 
 from ..layers.utils import Conv2dSame
 from ..layers.core import DNN
-from ..layers.sequence import KMaxPooling
 from ..layers.utils import concat_fun
 from .basemodel import BaseModel
 
@@ -53,34 +52,36 @@ class CCPM(BaseModel):
         if len(conv_kernel_width) != len(conv_filters):
             raise ValueError(
                 "conv_kernel_width must have same element with conv_filters")
-
+        self.conv_filters = conv_filters
+        self.conv_kernel_width = conv_kernel_width
         self.dnn_hidden_units = dnn_hidden_units
-        self.dnn = DNN(self.compute_input_dim(dnn_feature_columns, embedding_size, ), dnn_hidden_units,
-                       activation=dnn_activation, l2_reg=l2_reg_dnn, dropout_rate=dnn_dropout, use_bn=dnn_use_bn,
-                       init_std=init_std,device=device)
+        self.dnn_use_bn = dnn_use_bn
+        self.dnn_activation = dnn_activation
         self.dnn_linear = nn.Linear(dnn_hidden_units[-1], 1, bias=False).to(device)
 
     def forward(self,X):
-
         sparse_embedding_list, _ = self.input_from_feature_columns(X, self.dnn_feature_columns,
-                                                                                  self.embedding_dict)
+                                                                  self.embedding_dict,support_dense=True)
         linear_logit = self.linear_model(X)
         conv_input = concat_fun(sparse_embedding_list, axis=1)
-        pooling_result = filter(lambda x: torch.unsqueeze(x, 3),conv_input)
+        pooling_result = torch.unsqueeze(conv_input, 1)
         n = len(sparse_embedding_list)
-        l = len(conv_filters)
-        
+        l = len(self.conv_filters)
+
         for i in range(1, l + 1):
-            filters = conv_filters[i - 1]
-            width = conv_kernel_width[i - 1]
+            filters = self.conv_filters[i - 1]
+            width = self.conv_kernel_width[i - 1]
             k = max(1, int((1 - pow(i / l, l - i)) * n)) if i < l else 3
-            conv_result = Conv2dSame(in_channels=pooling_result.shape[-1],out_channels=filters,kernel_size=(width, 1),stride=(1,1))(pooling_result)
-            conv_result = torch.nn.functional.tanh()(conv_result)
-            pooling_result = KMaxPooling(
-                k=min(k, int(conv_result.shape[1])), axis=1)(conv_result)
+            conv_result = Conv2dSame(in_channels=pooling_result.shape[-3],out_channels=filters,kernel_size=(width, 1),stride=1).to(self.device)(pooling_result)
+            conv_result = torch.nn.functional.tanh(conv_result).to(self.device)
+            #KMaxPooling ,extract top_k, returns two tensors [values, indices]
+            pooling_result = torch.topk(conv_result,k=k,dim=2,sorted=True)[0]
 
         flatten_result = pooling_result.view(pooling_result.size(0), -1)
-        dnn_output = self.dnn(flatten_result)
+        dnn_output = DNN(flatten_result.shape[-1], self.dnn_hidden_units,
+                       activation=self.dnn_activation, l2_reg=self.l2_reg_dnn, dropout_rate=self.dnn_dropout, use_bn=self.dnn_use_bn,
+                       init_std=self.init_std,device=self.device)(flatten_result)
+
         dnn_logit = self.dnn_linear(dnn_output)
         logit = linear_logit + dnn_logit
         y_pred = self.out(logit)

@@ -7,7 +7,9 @@ Author:
 """
 import numpy as np
 import torch
-
+import math
+import torch.nn as nn
+import torch.nn.functional as F
 
 def concat_fun(inputs, axis=-1):
     if len(inputs) == 1:
@@ -68,21 +70,24 @@ def slice_arrays(arrays, start=None, stop=None):
             return arrays[start:stop]
         else:
             return [None]
-class Conv2dSame(torch.nn.Module):
 
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, dilation=1):
-        super(Conv2dSame, self).__init__()
-        self.F = kernel_size
-        self.S = stride
-        self.D = dilation
-        self.layer = torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride, dilation=dilation)
+class Conv2dSame(nn.Conv2d):
+    """ Tensorflow like 'SAME' convolution wrapper for 2D convolutions
+    """
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1,
+                 padding=0, dilation=1, groups=1, bias=True):
+        super(Conv2dSame, self).__init__(
+            in_channels, out_channels, kernel_size, stride, 0, dilation,
+            groups, bias)
 
-    def forward(self, x_in):
-        N, C, H, W = x_in.shape
-        H2 = math.ceil(H / self.S)
-        W2 = math.ceil(W / self.S)
-        Pr = (H2 - 1) * self.S + (self.F - 1) * self.D + 1 - H
-        Pc = (W2 - 1) * self.S + (self.F - 1) * self.D + 1 - W
-        x_pad = torch.nn.ZeroPad2d((Pr//2, Pr - Pr//2, Pc//2, Pc - Pc//2))(x_in)
-        x_out = self.layer(x_pad)
-        return x_out
+    def forward(self, x):
+        ih, iw = x.size()[-2:]
+        kh, kw = self.weight.size()[-2:]
+        oh = math.ceil(ih / self.stride[0])
+        ow = math.ceil(iw / self.stride[1])
+        pad_h = max((oh - 1) * self.stride[0] + (kh - 1) * self.dilation[0] + 1 - ih, 0)
+        pad_w = max((ow - 1) * self.stride[1] + (kw - 1) * self.dilation[1] + 1 - iw, 0)
+        if pad_h > 0 or pad_w > 0:
+            x = F.pad(x, [pad_w//2, pad_w - pad_w//2, pad_h//2, pad_h - pad_h//2])
+        return F.conv2d(x, self.weight, self.bias, self.stride,
+                        self.padding, self.dilation, self.groups)

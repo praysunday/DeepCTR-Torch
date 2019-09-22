@@ -98,6 +98,9 @@ class BaseModel(nn.Module):
 
         super(BaseModel, self).__init__()
 
+        self.l2_reg_dnn=l2_reg_dnn
+        self.dnn_dropout=dnn_dropout
+        self.init_std = init_std
         self.reg_loss = torch.zeros((1,), device=device)
         self.device = device  # device
 
