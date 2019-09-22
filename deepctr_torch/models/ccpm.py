@@ -73,7 +73,7 @@ class CCPM(BaseModel):
             width = self.conv_kernel_width[i - 1]
             k = max(1, int((1 - pow(i / l, l - i)) * n)) if i < l else 3
             conv_result = Conv2dSame(in_channels=pooling_result.shape[-3],out_channels=filters,kernel_size=(width, 1),stride=1).to(self.device)(pooling_result)
-            conv_result = torch.nn.functional.tanh(conv_result).to(self.device)
+            conv_result = torch.tanh(conv_result).to(self.device)
             #KMaxPooling ,extract top_k, returns two tensors [values, indices]
             pooling_result = torch.topk(conv_result,k=k,dim=2,sorted=True)[0]
 

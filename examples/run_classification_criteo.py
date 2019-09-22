@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-
+import sys
+sys.path.append('/home/SENSETIME/zengkai/new_ctr_test/DeepCTR-PyTorch')
 import pandas as pd
 from sklearn.metrics import log_loss, roc_auc_score
 from sklearn.model_selection import train_test_split
@@ -58,7 +59,7 @@ if __name__ == "__main__":
     model.compile("adagrad", "binary_crossentropy",
                   metrics=["binary_crossentropy", "auc"],)
     model.fit(train_model_input, train[target].values,
-              batch_size=256, epochs=10, validation_split=0.2, verbose=2)
+              batch_size=32, epochs=10, validation_split=0.2, verbose=2)
 
     pred_ans = model.predict(test_model_input, 256)
     print("")
